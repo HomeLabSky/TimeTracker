@@ -7,10 +7,14 @@ namespace SchoppmannTimeTracker.Core.Services
     public class SettingsService : ISettingsService
     {
         private readonly IUserSettingsRepository _settingsRepository;
+        private readonly IHourlyRateService _hourlyRateService;
 
-        public SettingsService(IUserSettingsRepository settingsRepository)
+        public SettingsService(
+            IUserSettingsRepository settingsRepository,
+            IHourlyRateService hourlyRateService)
         {
             _settingsRepository = settingsRepository;
+            _hourlyRateService = hourlyRateService;
         }
 
         public async Task<UserSettings> GetUserSettingsAsync(string userId)
@@ -43,13 +47,30 @@ namespace SchoppmannTimeTracker.Core.Services
             if (existingSettings == null)
             {
                 await _settingsRepository.AddAsync(settings);
+
+                // Füge den initialen Stundenlohn zur Historie hinzu
+                await _hourlyRateService.AddRateHistoryAsync(
+                    settings.UserId,
+                    settings.HourlyRate,
+                    settings.HourlyRateValidFrom);
             }
             else
             {
+                // Prüfen, ob sich der Stundenlohn geändert hat
+                if (existingSettings.HourlyRate != settings.HourlyRate)
+                {
+                    // Neuen Eintrag in der Stundenlohn-Historie erstellen
+                    await _hourlyRateService.AddRateHistoryAsync(
+                        settings.UserId,
+                        settings.HourlyRate,
+                        settings.HourlyRateValidFrom);
+                }
+
                 existingSettings.HourlyRate = settings.HourlyRate;
                 existingSettings.BillingPeriodStartDay = settings.BillingPeriodStartDay;
                 existingSettings.BillingPeriodEndDay = settings.BillingPeriodEndDay;
                 existingSettings.InvoiceEmail = settings.InvoiceEmail;
+                existingSettings.HourlyRateValidFrom = settings.HourlyRateValidFrom;
 
                 _settingsRepository.Update(existingSettings);
                 settings = existingSettings;

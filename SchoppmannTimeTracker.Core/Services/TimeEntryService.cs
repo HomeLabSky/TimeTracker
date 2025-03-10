@@ -10,13 +10,16 @@ namespace SchoppmannTimeTracker.Core.Services
     {
         private readonly ITimeEntryRepository _timeEntryRepository;
         private readonly IUserSettingsRepository _settingsRepository;
+        private readonly IHourlyRateService _hourlyRateService;
 
         public TimeEntryService(
             ITimeEntryRepository timeEntryRepository,
-            IUserSettingsRepository settingsRepository)
+            IUserSettingsRepository settingsRepository,
+            IHourlyRateService hourlyRateService)
         {
             _timeEntryRepository = timeEntryRepository;
             _settingsRepository = settingsRepository;
+            _hourlyRateService = hourlyRateService;
         }
 
         public async Task<TimeEntry> GetTimeEntryAsync(int id)
@@ -154,6 +157,17 @@ namespace SchoppmannTimeTracker.Core.Services
             }
 
             return totalEarnings;
+        }
+
+        // Neue asynchrone Methode für die Berechnung
+        public async Task<decimal> CalculateEarningsAsync(TimeEntry timeEntry)
+        {
+            var workHours = CalculateWorkHours(timeEntry);
+
+            // Den korrekten Stundenlohn für das Datum des Zeiteintrags abrufen
+            decimal hourlyRate = await _hourlyRateService.GetRateForDateAsync(timeEntry.UserId, timeEntry.WorkDate);
+
+            return (decimal)workHours.TotalHours * hourlyRate;
         }
     }
 }

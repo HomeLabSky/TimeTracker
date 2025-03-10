@@ -14,21 +14,25 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+
 namespace SchoppmannTimeTracker.Infrastructure.Services
 {
     public class PdfService : IPdfService
     {
         private readonly ITimeEntryService _timeEntryService;
         private readonly ISettingsService _settingsService;
+        private readonly IHourlyRateService _hourlyRateService;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public PdfService(
             ITimeEntryService timeEntryService,
             ISettingsService settingsService,
+            IHourlyRateService hourlyRateService,
             UserManager<ApplicationUser> userManager)
         {
             _timeEntryService = timeEntryService;
             _settingsService = settingsService;
+            _hourlyRateService = hourlyRateService;
             _userManager = userManager;
         }
 
@@ -82,7 +86,8 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                 foreach (var entry in timeEntries)
                 {
                     var workHours = _timeEntryService.CalculateWorkHours(entry);
-                    var earnings = _timeEntryService.CalculateEarnings(entry, settings);
+                    // Verwende die asynchrone Methode für die Berechnung des historischen Stundenlohns
+                    var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
 
                     table.AddCell(new Cell().Add(new Paragraph(entry.WorkDate.ToString("dd.MM.yyyy")).SetFont(normalFont)));
                     table.AddCell(new Cell().Add(new Paragraph(entry.StartTime.ToString(@"hh\:mm")).SetFont(normalFont)));
@@ -104,15 +109,32 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                 document.Add(table);
 
                 // Zusätzliche Informationen
-                document.Add(new Paragraph($"Stundenlohn: {settings.HourlyRate:N2} €")
+                document.Add(new Paragraph($"Aktueller Stundenlohn: {settings.HourlyRate:N2} €")
                     .SetFont(normalFont)
                     .SetMarginTop(20));
+
+                // Hinweis auf historische Stundenlöhne
+                if (await HasHistoricalRatesAsync(userId))
+                {
+                    PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+                    document.Add(new Paragraph("Hinweis: Die Berechnungen berücksichtigen historische Stundenlohnsätze.")
+                        .SetFont(italicFont)
+                        .SetFontSize(9));
+                }
+
                 document.Add(new Paragraph($"Gesamtverdienst: {totalEarnings:N2} €")
                     .SetFont(boldFont));
 
                 document.Close();
                 return memoryStream.ToArray();
             }
+        }
+
+        private async Task<bool> HasHistoricalRatesAsync(string userId)
+        {
+            var history = await _hourlyRateService.GetRateHistoryAsync(userId);
+            return history.Count > 1; // Mehr als 1 Eintrag bedeutet, dass es historische Änderungen gibt
         }
 
         public async Task<byte[]> GenerateAllUsersTimeSheetPdfAsync(DateTime startDate, DateTime endDate)
@@ -176,7 +198,8 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     foreach (var entry in timeEntries)
                     {
                         var workHours = _timeEntryService.CalculateWorkHours(entry);
-                        var earnings = _timeEntryService.CalculateEarnings(entry, settings);
+                        // Verwende die asynchrone Methode für die Berechnung des historischen Stundenlohns
+                        var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
 
                         table.AddCell(new Cell().Add(new Paragraph(entry.WorkDate.ToString("dd.MM.yyyy")).SetFont(normalFont)));
                         table.AddCell(new Cell().Add(new Paragraph(entry.StartTime.ToString(@"hh\:mm")).SetFont(normalFont)));
@@ -198,8 +221,19 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     document.Add(table);
 
                     // Zusätzliche Informationen pro Benutzer
-                    document.Add(new Paragraph($"Stundenlohn: {settings.HourlyRate:N2} €")
+                    document.Add(new Paragraph($"Aktueller Stundenlohn: {settings.HourlyRate:N2} €")
                         .SetFont(normalFont));
+
+                    // Hinweis auf historische Stundenlöhne
+                    if (await HasHistoricalRatesAsync(user.Id))
+                    {
+                        PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+
+                        document.Add(new Paragraph("Hinweis: Die Berechnungen berücksichtigen historische Stundenlohnsätze.")
+                            .SetFont(italicFont)
+                            .SetFontSize(9));
+                    }
+
                     document.Add(new Paragraph($"Gesamtverdienst: {totalUserEarnings:N2} €")
                         .SetFont(boldFont));
 

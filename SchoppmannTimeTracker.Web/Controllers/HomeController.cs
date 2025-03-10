@@ -5,6 +5,7 @@ using SchoppmannTimeTracker.Core.Entities;
 using SchoppmannTimeTracker.Core.Interfaces;
 using SchoppmannTimeTracker.Web.Models;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,98 +17,108 @@ namespace SchoppmannTimeTracker.Web.Controllers
     {
         private readonly ITimeEntryService _timeEntryService;
         private readonly ISettingsService _settingsService;
+        private readonly IPdfService _pdfService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IHourlyRateService _hourlyRateService; // Neu hinzugefügt
 
         public HomeController(
             ITimeEntryService timeEntryService,
             ISettingsService settingsService,
-            UserManager<ApplicationUser> userManager)
+            IPdfService pdfService,
+            UserManager<ApplicationUser> userManager,
+            IHourlyRateService hourlyRateService) // Neu hinzugefügt
         {
             _timeEntryService = timeEntryService;
             _settingsService = settingsService;
+            _pdfService = pdfService;
             _userManager = userManager;
+            _hourlyRateService = hourlyRateService; // Neu hinzugefügt
         }
 
         public async Task<IActionResult> Index()
         {
             var userId = _userManager.GetUserId(User);
-
-            // Abrechnungszeitraum ermitteln
             var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
-            // Zeiteinträge für den aktuellen Abrechnungszeitraum laden
             var timeEntries = await _timeEntryService.GetTimeEntriesForPeriodAsync(userId, startDate, endDate);
+            var userSettings = await _settingsService.GetUserSettingsAsync(userId);
 
-            // Benutzereinstellungen laden
-            var settings = await _settingsService.GetUserSettingsAsync(userId);
-
-            // ViewModel erstellen
+            // Modifizierte Berechnung der Einträge mit historischen Stundenlöhnen
             var viewModel = new TimeOverviewViewModel
             {
+                TimeEntries = await MapTimeEntriesToViewModel(timeEntries, userId),
                 StartDate = startDate,
                 EndDate = endDate,
-                TimeEntries = timeEntries.Select(entry => new TimeEntryListItemViewModel
+                TotalEarnings = await CalculateTotalEarningsAsync(timeEntries, userId),
+                TotalWorkingHours = CalculateTotalWorkingHours(timeEntries)
+            };
+
+            return View(viewModel);
+        }
+
+        // Neue Hilfsmethode zur Berechnung der Gesamtvergütung mit historischen Stundenlöhnen
+        private async Task<decimal> CalculateTotalEarningsAsync(IReadOnlyList<TimeEntry> timeEntries, string userId)
+        {
+            decimal totalEarnings = 0;
+            foreach (var entry in timeEntries)
+            {
+                totalEarnings += await _timeEntryService.CalculateEarningsAsync(entry);
+            }
+            return totalEarnings;
+        }
+
+        // Hilfsmethode zur Berechnung der Gesamtarbeitszeit
+        private TimeSpan CalculateTotalWorkingHours(IReadOnlyList<TimeEntry> timeEntries)
+        {
+            var totalHours = TimeSpan.Zero;
+            foreach (var entry in timeEntries)
+            {
+                totalHours += _timeEntryService.CalculateWorkHours(entry);
+            }
+            return totalHours;
+        }
+
+        // Neue Hilfsmethode zum Mapping von TimeEntries auf ViewModel-Objekte
+        private async Task<IEnumerable<TimeEntryListItemViewModel>> MapTimeEntriesToViewModel(
+            IReadOnlyList<TimeEntry> timeEntries, string userId)
+        {
+            var result = new List<TimeEntryListItemViewModel>();
+
+            foreach (var entry in timeEntries)
+            {
+                // Berechnung des historischen Stundenlohns für diesen Eintrag
+                var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
+
+                result.Add(new TimeEntryListItemViewModel
                 {
                     Id = entry.Id,
                     WorkDate = entry.WorkDate,
                     StartTime = entry.StartTime,
                     EndTime = entry.EndTime,
-                    Earnings = _timeEntryService.CalculateEarnings(entry, settings)
-                }).OrderByDescending(e => e.WorkDate).ThenBy(e => e.StartTime),
-                TotalEarnings = await _timeEntryService.GetTotalEarningsForPeriodAsync(userId, startDate, endDate)
-            };
-
-            // Gesamtarbeitszeit berechnen
-            TimeSpan totalWorkingHours = TimeSpan.Zero;
-            foreach (var entry in timeEntries)
-            {
-                totalWorkingHours += _timeEntryService.CalculateWorkHours(entry);
+                    Earnings = earnings
+                });
             }
-            viewModel.TotalWorkingHours = totalWorkingHours;
 
-            return View(viewModel);
+            return result.OrderByDescending(x => x.WorkDate).ThenByDescending(x => x.StartTime);
         }
 
-        [HttpGet]
         public async Task<IActionResult> GeneratePdf()
         {
             var userId = _userManager.GetUserId(User);
-
-            // Abrechnungszeitraum ermitteln
             var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
-            // PDF-Service ist in der Infrastructure-Schicht
-            var pdfService = HttpContext.RequestServices.GetService(typeof(IPdfService)) as IPdfService;
-
-            if (pdfService != null)
-            {
-                var pdfBytes = await pdfService.GenerateTimeSheetPdfAsync(userId, startDate, endDate);
-
-                return File(pdfBytes, "application/pdf", $"Zeiterfassung_{startDate:yyyy-MM-dd}_{endDate:yyyy-MM-dd}.pdf");
-            }
-
-            return BadRequest("PDF-Service ist nicht verfügbar.");
+            var pdfBytes = await _pdfService.GenerateTimeSheetPdfAsync(userId, startDate, endDate);
+            return File(pdfBytes, "application/pdf", $"Timesheet_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.pdf");
         }
 
-        [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GenerateAllUsersPdf()
         {
-            // Abrechnungszeitraum ermitteln (standardmäßig aktueller Monat)
-            var now = DateTime.Now;
-            var startDate = new DateTime(now.Year, now.Month, 1);
-            var endDate = startDate.AddMonths(1).AddDays(-1);
+            var userId = _userManager.GetUserId(User);
+            var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
-            var pdfService = HttpContext.RequestServices.GetService(typeof(IPdfService)) as IPdfService;
-
-            if (pdfService != null)
-            {
-                var pdfBytes = await pdfService.GenerateAllUsersTimeSheetPdfAsync(startDate, endDate);
-
-                return File(pdfBytes, "application/pdf", $"Alle_Mitarbeiter_Zeiterfassung_{startDate:yyyy-MM-dd}_{endDate:yyyy-MM-dd}.pdf");
-            }
-
-            return BadRequest("PDF-Service ist nicht verfügbar.");
+            var pdfBytes = await _pdfService.GenerateAllUsersTimeSheetPdfAsync(startDate, endDate);
+            return File(pdfBytes, "application/pdf", $"AllUsers_Timesheet_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.pdf");
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -115,11 +126,5 @@ namespace SchoppmannTimeTracker.Web.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
-    }
-
-    public class ErrorViewModel
-    {
-        public string RequestId { get; set; }
-        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
     }
 }

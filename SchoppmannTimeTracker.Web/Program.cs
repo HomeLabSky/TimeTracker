@@ -30,12 +30,14 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => {
 // Repositories registrieren
 builder.Services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
 builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
+builder.Services.AddScoped<IHourlyRateRepository, HourlyRateRepository>();
 
 // Services registrieren
 builder.Services.AddScoped<ITimeEntryService, TimeEntryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
+builder.Services.AddScoped<IHourlyRateService, HourlyRateService>();
 
 // Authentifizierung und Autorisierung konfigurieren
 builder.Services.AddAuthentication();

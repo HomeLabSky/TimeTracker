@@ -13,6 +13,7 @@ namespace SchoppmannTimeTracker.Infrastructure.Data
 
         public DbSet<TimeEntry> TimeEntries { get; set; }
         public DbSet<UserSettings> UserSettings { get; set; }
+        public DbSet<HourlyRateHistory> HourlyRateHistory { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

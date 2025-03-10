@@ -9,5 +9,6 @@ namespace SchoppmannTimeTracker.Core.Entities
         public string? LastName { get; set; }
         public virtual ICollection<TimeEntry> TimeEntries { get; set; } = new List<TimeEntry>();
         public virtual UserSettings Settings { get; set; }
+        public virtual ICollection<HourlyRateHistory> RateHistory { get; set; } = new List<HourlyRateHistory>();
     }
 }

@@ -14,15 +14,18 @@ namespace SchoppmannTimeTracker.Web.Controllers
         private readonly ITimeEntryService _timeEntryService;
         private readonly ISettingsService _settingsService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IHourlyRateService _hourlyRateService; 
 
         public TimeEntryController(
             ITimeEntryService timeEntryService,
             ISettingsService settingsService,
-            UserManager<ApplicationUser> userManager)
+            UserManager<ApplicationUser> userManager,
+            IHourlyRateService hourlyRateService)
         {
             _timeEntryService = timeEntryService;
             _settingsService = settingsService;
             _userManager = userManager;
+            _hourlyRateService = hourlyRateService;
         }
 
         [HttpGet]
@@ -85,7 +88,8 @@ namespace SchoppmannTimeTracker.Web.Controllers
                 return Forbid();
             }
 
-            var settings = await _settingsService.GetUserSettingsAsync(userId);
+            // Berechnung des historischen Stundenlohns für diesen Eintrag
+            var earnings = await _timeEntryService.CalculateEarningsAsync(timeEntry);
 
             var viewModel = new TimeEntryViewModel
             {
@@ -93,7 +97,7 @@ namespace SchoppmannTimeTracker.Web.Controllers
                 WorkDate = timeEntry.WorkDate,
                 StartTime = timeEntry.StartTime,
                 EndTime = timeEntry.EndTime,
-                Earnings = _timeEntryService.CalculateEarnings(timeEntry, settings)
+                Earnings = earnings
             };
 
             return View(viewModel);

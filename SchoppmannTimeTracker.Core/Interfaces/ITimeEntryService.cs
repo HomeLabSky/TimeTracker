@@ -17,5 +17,6 @@ namespace SchoppmannTimeTracker.Core.Interfaces
         TimeSpan CalculateWorkHours(TimeEntry timeEntry);
         Task<(DateTime StartDate, DateTime EndDate)> GetCurrentBillingPeriodAsync(string userId);
         Task<decimal> GetTotalEarningsForPeriodAsync(string userId, DateTime startDate, DateTime endDate);
+        Task<decimal> CalculateEarningsAsync(TimeEntry timeEntry);
     }
 }
