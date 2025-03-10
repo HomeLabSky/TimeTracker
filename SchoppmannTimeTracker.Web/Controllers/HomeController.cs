@@ -79,15 +79,19 @@ namespace SchoppmannTimeTracker.Web.Controllers
         }
 
         // Neue Hilfsmethode zum Mapping von TimeEntries auf ViewModel-Objekte
-        private async Task<IEnumerable<TimeEntryListItemViewModel>> MapTimeEntriesToViewModel(
-            IReadOnlyList<TimeEntry> timeEntries, string userId)
+        private async Task<IEnumerable<TimeEntryListItemViewModel>> MapTimeEntriesToViewModel(IReadOnlyList<TimeEntry> timeEntries, string userId)
         {
             var result = new List<TimeEntryListItemViewModel>();
+            System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Mappe {timeEntries.Count} Einträge für Benutzer {userId}");
 
             foreach (var entry in timeEntries)
             {
+                System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Berechne Verdienst für Eintrag vom {entry.WorkDate:dd.MM.yyyy}");
+
                 // Berechnung des historischen Stundenlohns für diesen Eintrag
                 var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
+
+                System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Berechneter Verdienst: {earnings} €");
 
                 result.Add(new TimeEntryListItemViewModel
                 {
@@ -126,5 +130,45 @@ namespace SchoppmannTimeTracker.Web.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+
+
+        [HttpGet]
+        [Route("Home/TestRateHistory/{userId}")]
+        public async Task<IActionResult> TestRateHistory(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                userId = _userManager.GetUserId(User);
+            }
+
+            var history = await _hourlyRateService.GetRateHistoryAsync(userId);
+
+            System.Diagnostics.Debug.WriteLine($"TestRateHistory: {history.Count} Einträge für Benutzer {userId} gefunden");
+
+            foreach (var entry in history)
+            {
+                System.Diagnostics.Debug.WriteLine($"TestRateHistory: Rate: {entry.Rate} €, gültig von {entry.ValidFrom:dd.MM.yyyy} bis {(entry.ValidTo.HasValue ? entry.ValidTo.Value.ToString("dd.MM.yyyy") : "heute")}");
+            }
+
+            // Teste für mehrere Daten
+            var testDates = new[]
+            {
+                new DateTime(2025, 2, 1),
+                new DateTime(2025, 2, 15),
+                new DateTime(2025, 3, 1),
+                new DateTime(2025, 3, 15),
+                new DateTime(2025, 4, 1),
+                DateTime.Today
+            };
+
+            foreach (var date in testDates)
+            {
+                var rate = await _hourlyRateService.GetRateForDateAsync(userId, date);
+                System.Diagnostics.Debug.WriteLine($"TestRateHistory: Rate für {date:dd.MM.yyyy}: {rate} €");
+            }
+
+            return Content("Test abgeschlossen. Siehe Debug-Ausgabe für Ergebnisse.");
+        }
+
     }
 }

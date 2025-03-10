@@ -46,6 +46,7 @@ namespace SchoppmannTimeTracker.Core.Services
 
             if (existingSettings == null)
             {
+                System.Diagnostics.Debug.WriteLine($"CreateOrUpdateSettingsAsync: Keine Einstellungen gefunden, erstelle neue mit Stundenlohn {settings.HourlyRate} € ab {settings.HourlyRateValidFrom:dd.MM.yyyy}");
                 await _settingsRepository.AddAsync(settings);
 
                 // Füge den initialen Stundenlohn zur Historie hinzu
@@ -57,8 +58,15 @@ namespace SchoppmannTimeTracker.Core.Services
             else
             {
                 // Prüfen, ob sich der Stundenlohn geändert hat
-                if (existingSettings.HourlyRate != settings.HourlyRate)
+                bool hourlyRateChanged = existingSettings.HourlyRate != settings.HourlyRate;
+
+                System.Diagnostics.Debug.WriteLine($"CreateOrUpdateSettingsAsync: Bestehende Einstellungen gefunden, aktueller Stundenlohn: {existingSettings.HourlyRate} €, neuer Stundenlohn: {settings.HourlyRate} €");
+                System.Diagnostics.Debug.WriteLine($"CreateOrUpdateSettingsAsync: Stundenlohn geändert: {hourlyRateChanged}");
+
+                if (hourlyRateChanged)
                 {
+                    System.Diagnostics.Debug.WriteLine($"CreateOrUpdateSettingsAsync: Stundenlohn wird von {existingSettings.HourlyRate} € auf {settings.HourlyRate} € geändert, gültig ab {settings.HourlyRateValidFrom:dd.MM.yyyy}");
+
                     // Neuen Eintrag in der Stundenlohn-Historie erstellen
                     await _hourlyRateService.AddRateHistoryAsync(
                         settings.UserId,

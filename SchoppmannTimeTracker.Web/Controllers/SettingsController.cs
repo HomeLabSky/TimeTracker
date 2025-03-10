@@ -82,10 +82,10 @@ namespace SchoppmannTimeTracker.Web.Controllers
                 return Forbid();
             }
 
-            // Bestehende Einstellungen laden - wird in beiden Fällen benötigt
+            // Bestehende Einstellungen laden
             var existingSettings = await _settingsService.GetUserSettingsAsync(model.UserId);
 
-            // Prüfen, ob der Stundenlohn geändert wurde - wird in beiden Fällen benötigt
+            // Prüfen, ob der Stundenlohn geändert wurde
             bool hourlyRateChanged = existingSettings.HourlyRate != model.HourlyRate;
 
             // Für normale Benutzer nur die InvoiceEmail validieren und aktualisieren
@@ -118,6 +118,13 @@ namespace SchoppmannTimeTracker.Web.Controllers
             // Für Administratoren validiere alle Felder
             if (ModelState.IsValid)
             {
+
+                DateTime hourlyRateValidFrom = existingSettings.HourlyRateValidFrom;
+                if (hourlyRateChanged)
+                {
+                    hourlyRateValidFrom = model.HourlyRateValidFrom;
+                }
+
                 var settings = new UserSettings
                 {
                     Id = model.Id,
@@ -126,12 +133,20 @@ namespace SchoppmannTimeTracker.Web.Controllers
                     BillingPeriodStartDay = model.BillingPeriodStartDay,
                     BillingPeriodEndDay = model.BillingPeriodEndDay,
                     InvoiceEmail = model.InvoiceEmail,
-                    HourlyRateValidFrom = hourlyRateChanged ? model.HourlyRateValidFrom : existingSettings.HourlyRateValidFrom
+                    HourlyRateValidFrom = hourlyRateValidFrom
                 };
 
                 await _settingsService.CreateOrUpdateSettingsAsync(settings);
 
-                TempData["StatusMessage"] = "Einstellungen wurden aktualisiert.";
+                // Wenn sich der Stundenlohn geändert hat
+                if (hourlyRateChanged)
+                {
+                    TempData["StatusMessage"] = $"Einstellungen wurden aktualisiert. Der neue Stundenlohn gilt ab {model.HourlyRateValidFrom:dd.MM.yyyy}.";
+                }
+                else
+                {
+                    TempData["StatusMessage"] = "Einstellungen wurden aktualisiert.";
+                }
 
                 // Wenn ein Admin die Einstellungen eines anderen Benutzers bearbeitet hat,
                 // leite auf die Benutzerübersicht zurück

@@ -163,11 +163,17 @@ namespace SchoppmannTimeTracker.Core.Services
         public async Task<decimal> CalculateEarningsAsync(TimeEntry timeEntry)
         {
             var workHours = CalculateWorkHours(timeEntry);
+            System.Diagnostics.Debug.WriteLine($"CalculateEarningsAsync: Berechne Verdienst für Eintrag vom {timeEntry.WorkDate:dd.MM.yyyy} (Benutzer {timeEntry.UserId})");
+            System.Diagnostics.Debug.WriteLine($"CalculateEarningsAsync: Arbeitszeit: {workHours.TotalHours} Stunden");
 
             // Den korrekten Stundenlohn für das Datum des Zeiteintrags abrufen
             decimal hourlyRate = await _hourlyRateService.GetRateForDateAsync(timeEntry.UserId, timeEntry.WorkDate);
+            System.Diagnostics.Debug.WriteLine($"CalculateEarningsAsync: Verwendeter Stundenlohn: {hourlyRate} €");
 
-            return (decimal)workHours.TotalHours * hourlyRate;
+            decimal earnings = (decimal)workHours.TotalHours * hourlyRate;
+            System.Diagnostics.Debug.WriteLine($"CalculateEarningsAsync: Berechneter Verdienst: {earnings} €");
+
+            return earnings;
         }
     }
 }
