@@ -26,7 +26,7 @@ namespace SchoppmannTimeTracker.Infrastructure.Repositories
         public async Task<HourlyRateHistory> GetRateForDateAsync(string userId, DateTime date)
         {
             return await _context.HourlyRateHistory
-                .Where(x => x.UserId == userId && x.ValidFrom <= date && (x.ValidTo == null || x.ValidTo >= date))
+                .Where(x => x.UserId == userId && x.ValidFrom <= date)
                 .OrderByDescending(x => x.ValidFrom)
                 .FirstOrDefaultAsync();
         }

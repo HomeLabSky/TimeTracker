@@ -153,7 +153,7 @@ namespace SchoppmannTimeTracker.Core.Services
             decimal totalEarnings = 0;
             foreach (var entry in timeEntries)
             {
-                totalEarnings += CalculateEarnings(entry, settings);
+                totalEarnings += await CalculateEarningsAsync(entry);
             }
 
             return totalEarnings;

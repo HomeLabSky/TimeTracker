@@ -35,18 +35,6 @@
                             <span asp-validation-for="HourlyRateValidFrom" class="text-danger"></span>
                             <div class="form-text">Dieser Stundenlohn gilt für alle Zeiteinträge ab diesem Datum.</div>
                         </div>
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="applyRetroactively" checked disabled>
-                                <label class="form-check-label" for="applyRetroactively">
-                                    Stundenlohn rückwirkend anwenden
-                                </label>
-                                <div class="form-text">
-                                    Der neue Stundenlohn wird auf alle existierenden Zeiterfassungen angewendet,
-                                    auch auf Einträge vor dem Änderungsdatum.
-                                </div>
-                            </div>
-                        </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label asp-for="BillingPeriodStartDay" class="form-label"></label>
