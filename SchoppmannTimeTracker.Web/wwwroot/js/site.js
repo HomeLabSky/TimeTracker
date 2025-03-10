@@ -1,4 +1,21 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+﻿// Automatisches Ausblenden von Alerts nach 5 Sekunden
+document.addEventListener('DOMContentLoaded', function () {
+    // Alle Alert-Elemente auswählen
+    const alerts = document.querySelectorAll('.alert');
 
-// Write your JavaScript code.
+    // Für jedes Alert-Element einen Timeout setzen
+    alerts.forEach(function (alert) {
+        setTimeout(function () {
+            // Bootstrap 5 Fade-Out mit dispose
+            const bsAlert = new bootstrap.Alert(alert);
+            alert.classList.remove('show');
+            // Nach dem Ausblenden entfernen
+            alert.addEventListener('transitionend', function () {
+                bsAlert.dispose();
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            });
+        }, 5000); // 5 Sekunden
+    });
+});

@@ -1,0 +1,81 @@
+﻿@model SchoppmannTimeTracker.Web.Areas.Admin.Models.UserListViewModel
+@{
+    ViewData["Title"] = "Benutzerverwaltung";
+}
+
+<div class="mb-4 border-bottom pb-2 d-flex justify-content-between align-items-center">
+    <h1>Benutzerverwaltung</h1>
+    <div>
+        <a asp-area="Admin" asp-controller="UserManager" asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> Neuen Benutzer anlegen
+        </a>
+    </div>
+</div>
+
+@if (TempData["StatusMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["StatusMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>E-Mail</th>
+                        <th>Rolle</th>
+                        <th class="text-center">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Users != null && Model.Users.Any())
+                    {
+                        foreach (var user in Model.Users)
+                        {
+                            <tr>
+                                <td>@user.FirstName @user.LastName</td>
+                                <td>@user.Email</td>
+                                <td>@user.Role</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <a asp-area="Admin" asp-controller="UserManager" asp-action="Edit" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i> Bearbeiten
+                                        </a>
+                                        <!-- In /Areas/Admin/Views/UserManager/Index.cshtml, im Aktionen-Bereich für jeden Benutzer -->
+                                        <a asp-controller="Settings" asp-action="Index" asp-route-userId="@user.Id" asp-area="" class="btn btn-sm btn-outline-info">
+                                            <i class="bi bi-gear"></i> Einstellungen
+                                        </a>
+                                        <form asp-area="Admin" asp-controller="UserManager" asp-action="Delete" asp-route-id="@user.Id" method="post" class="d-inline" onsubmit="return confirm('Möchten Sie diesen Benutzer wirklich löschen?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i> Löschen
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center">Keine Benutzer vorhanden.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
