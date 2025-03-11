@@ -31,6 +31,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => {
 builder.Services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
 builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
 builder.Services.AddScoped<IHourlyRateRepository, HourlyRateRepository>();
+builder.Services.AddScoped<IMinijobSettingsRepository, MinijobSettingsRepository>();
+builder.Services.AddScoped<IEarningsCarryoverRepository, EarningsCarryoverRepository>();
 
 // Services registrieren
 builder.Services.AddScoped<ITimeEntryService, TimeEntryService>();
@@ -38,6 +40,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IHourlyRateService, HourlyRateService>();
+builder.Services.AddScoped<IMinijobSettingsService, MinijobSettingsService>();
+builder.Services.AddScoped<IEarningsCarryoverService, EarningsCarryoverService>();
 
 // Authentifizierung und Autorisierung konfigurieren
 builder.Services.AddAuthentication();

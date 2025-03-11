@@ -1,0 +1,131 @@
+﻿@model SchoppmannTimeTracker.Web.Areas.Admin.Models.MinijobSettingsListViewModel
+@{
+    ViewData["Title"] = "Minijob-Einstellungen";
+}
+
+<div class="mb-4 border-bottom pb-2 d-flex justify-content-between align-items-center">
+    <h1>Minijob-Einstellungen</h1>
+    <div>
+        <a asp-area="Admin" asp-controller="MinijobSettings" asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Neue Einstellung
+        </a>
+    </div>
+</div>
+
+@if (TempData["StatusMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["StatusMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0">Aktuelle Einstellung</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Monatliches Limit:</dt>
+            <dd class="col-sm-9"><strong>@Model.CurrentSetting.MonthlyLimit.ToString("N2") €</strong></dd>
+
+            <dt class="col-sm-3">Beschreibung:</dt>
+            <dd class="col-sm-9">@Model.CurrentSetting.Description</dd>
+
+            <dt class="col-sm-3">Gültig ab:</dt>
+            <dd class="col-sm-9">@Model.CurrentSetting.ValidFrom.ToString("dd.MM.yyyy")</dd>
+
+            <dt class="col-sm-3">Gültig bis:</dt>
+            <dd class="col-sm-9">
+                @if (Model.CurrentSetting.ValidTo.HasValue)
+                {
+                    @Model.CurrentSetting.ValidTo.Value.ToString("dd.MM.yyyy")
+                }
+                else
+                {
+                    <span class="text-muted">Unbegrenzt</span>
+                }
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Einstellungsverlauf</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Limit (€)</th>
+                        <th>Beschreibung</th>
+                        <th>Gültig ab</th>
+                        <th>Gültig bis</th>
+                        <th>Status</th>
+                        <th class="text-center">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Settings != null && Model.Settings.Any())
+                    {
+                        foreach (var setting in Model.Settings.OrderByDescending(s => s.ValidFrom))
+                        {
+                            <tr class="@(setting.IsActive ? "table-primary" : "")">
+                                <td>@setting.MonthlyLimit.ToString("N2") €</td>
+                                <td>@setting.Description</td>
+                                <td>@setting.ValidFrom.ToString("dd.MM.yyyy")</td>
+                                <td>
+                                    @if (setting.ValidTo.HasValue)
+                                    {
+                                        @setting.ValidTo.Value.ToString("dd.MM.yyyy")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Unbegrenzt</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (setting.IsActive)
+                                    {
+                                        <span class="badge bg-success">Aktiv</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <a asp-area="Admin" asp-controller="MinijobSettings" asp-action="Edit" asp-route-id="@setting.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i> Bearbeiten
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center">Keine Einstellungen vorhanden.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4 shadow-sm">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Hinweise</h5>
+    </div>
+    <div class="card-body">
+        <ul>
+            <li>Die aktuell <strong>aktive Einstellung</strong> bestimmt die Minijob-Grenze für alle Arbeitnehmer.</li>
+            <li>Wird das Verdienstlimit überschritten, wird der überschüssige Betrag automatisch in den Folgemonat übertragen.</li>
+            <li>Einstellungen können mit einem Gültigkeitsdatum versehen werden, um zukünftige Änderungen zu planen.</li>
+            <li>Sie können den <strong>Verlauf</strong> einsehen und frühere Einstellungen bei Bedarf reaktivieren.</li>
+        </ul>
+    </div>
+</div>

@@ -14,6 +14,8 @@ namespace SchoppmannTimeTracker.Infrastructure.Data
         public DbSet<TimeEntry> TimeEntries { get; set; }
         public DbSet<UserSettings> UserSettings { get; set; }
         public DbSet<HourlyRateHistory> HourlyRateHistory { get; set; }
+        public DbSet<MinijobSettings> MinijobSettings { get; set; }
+        public DbSet<EarningsCarryover> EarningsCarryovers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

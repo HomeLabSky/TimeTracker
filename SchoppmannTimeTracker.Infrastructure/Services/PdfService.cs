@@ -22,17 +22,23 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
         private readonly ITimeEntryService _timeEntryService;
         private readonly ISettingsService _settingsService;
         private readonly IHourlyRateService _hourlyRateService;
+        private readonly IEarningsCarryoverService _earningsCarryoverService;
+        private readonly IMinijobSettingsService _minijobSettingsService;
         private readonly UserManager<ApplicationUser> _userManager;
 
         public PdfService(
             ITimeEntryService timeEntryService,
             ISettingsService settingsService,
             IHourlyRateService hourlyRateService,
+            IEarningsCarryoverService earningsCarryoverService,
+            IMinijobSettingsService minijobSettingsService,
             UserManager<ApplicationUser> userManager)
         {
             _timeEntryService = timeEntryService;
             _settingsService = settingsService;
             _hourlyRateService = hourlyRateService;
+            _earningsCarryoverService = earningsCarryoverService;
+            _minijobSettingsService = minijobSettingsService;
             _userManager = userManager;
         }
 
@@ -44,6 +50,14 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
 
             var timeEntries = await _timeEntryService.GetTimeEntriesForPeriodAsync(userId, startDate, endDate);
             var settings = await _settingsService.GetUserSettingsAsync(userId);
+
+            // Get minijob settings for the period
+            var minijobSettings = await _minijobSettingsService.GetSettingsForDateAsync(startDate);
+
+            // Get carryover information
+            var year = startDate.Year;
+            var month = startDate.Month;
+            var carryoverInformation = await _earningsCarryoverService.GetEarningsSummaryAsync(userId, year, month);
 
             using (var memoryStream = new MemoryStream())
             {
@@ -113,6 +127,55 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     .SetFont(normalFont)
                     .SetMarginTop(20));
 
+                // Minijob-Informationen
+                Table minijobTable = new Table(2).UseAllAvailableWidth();
+                minijobTable.SetMarginTop(10);
+
+                // Header
+                minijobTable.AddHeaderCell(new Cell(1, 2).Add(new Paragraph("Minijob-Übersicht").SetFont(boldFont))
+                    .SetBackgroundColor(ColorConstants.LIGHT_GRAY)
+                    .SetTextAlignment(TextAlignment.CENTER));
+
+                // Monatliches Limit
+                minijobTable.AddCell(new Cell().Add(new Paragraph("Minijob-Grenze:").SetFont(boldFont)));
+                minijobTable.AddCell(new Cell().Add(new Paragraph($"{minijobSettings.MonthlyLimit:N2} €").SetFont(normalFont)));
+
+                // Übertrag aus dem Vormonat
+                minijobTable.AddCell(new Cell().Add(new Paragraph("Übertrag aus Vormonat:").SetFont(boldFont)));
+                minijobTable.AddCell(new Cell().Add(new Paragraph($"{carryoverInformation.carryoverIn:N2} €").SetFont(normalFont)));
+
+                // Verdienstanspruch
+                minijobTable.AddCell(new Cell().Add(new Paragraph("Tatsächlicher Verdienstanspruch:").SetFont(boldFont)));
+                minijobTable.AddCell(new Cell().Add(new Paragraph($"{totalEarnings:N2} €").SetFont(normalFont)));
+
+                // Ausgezahlter Betrag
+                minijobTable.AddCell(new Cell().Add(new Paragraph("Ausgezahlter Betrag:").SetFont(boldFont)));
+                minijobTable.AddCell(new Cell().Add(new Paragraph($"{carryoverInformation.reportedEarnings:N2} €").SetFont(normalFont)));
+
+                // Übertrag in den Folgemonat
+                minijobTable.AddCell(new Cell().Add(new Paragraph("Übertrag in Folgemonat:").SetFont(boldFont)));
+                var carryoverOutCell = new Cell().Add(new Paragraph($"{carryoverInformation.carryoverOut:N2} €").SetFont(normalFont));
+
+                // If there's carryover out, highlight it
+                if (carryoverInformation.carryoverOut > 0)
+                {
+                    carryoverOutCell.SetBackgroundColor(new DeviceRgb(255, 240, 240));
+                }
+
+                minijobTable.AddCell(carryoverOutCell);
+
+                document.Add(minijobTable);
+
+                // Hinweis bei Überschreitung des Limits
+                if (carryoverInformation.carryoverOut > 0)
+                {
+                    PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
+                    document.Add(new Paragraph("Hinweis: Die Minijob-Grenze wurde überschritten. Der Überschuss wird in den nächsten Monat übertragen.")
+                        .SetFont(italicFont)
+                        .SetFontSize(9)
+                        .SetMarginTop(5));
+                }
+
                 // Hinweis auf historische Stundenlöhne
                 if (await HasHistoricalRatesAsync(userId))
                 {
@@ -120,11 +183,9 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
 
                     document.Add(new Paragraph("Hinweis: Die Berechnungen berücksichtigen historische Stundenlohnsätze.")
                         .SetFont(italicFont)
-                        .SetFontSize(9));
+                        .SetFontSize(9)
+                        .SetMarginTop(5));
                 }
-
-                document.Add(new Paragraph($"Gesamtverdienst: {totalEarnings:N2} €")
-                    .SetFont(boldFont));
 
                 document.Close();
                 return memoryStream.ToArray();
@@ -140,6 +201,7 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
         public async Task<byte[]> GenerateAllUsersTimeSheetPdfAsync(DateTime startDate, DateTime endDate)
         {
             var users = _userManager.Users.ToList();
+            var minijobSettings = await _minijobSettingsService.GetSettingsForDateAsync(startDate);
 
             using (var memoryStream = new MemoryStream())
             {
@@ -150,6 +212,7 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                 // Schriftarten definieren
                 PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
                 PdfFont normalFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
 
                 document.Add(new Paragraph("Zeiterfassung aller Mitarbeiter")
                     .SetFont(boldFont)
@@ -160,7 +223,13 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     .SetFont(normalFont)
                     .SetTextAlignment(TextAlignment.CENTER));
 
+                document.Add(new Paragraph($"Aktuelle Minijob-Grenze: {minijobSettings.MonthlyLimit:N2} €")
+                    .SetFont(normalFont)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetMarginBottom(10));
+
                 decimal totalCompanyEarnings = 0;
+                decimal totalReportedEarnings = 0;
 
                 foreach (var user in users)
                 {
@@ -211,6 +280,11 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                         totalUserEarnings += earnings;
                     }
 
+                    // Get carryover information for this user
+                    var year = startDate.Year;
+                    var month = startDate.Month;
+                    var carryoverInformation = await _earningsCarryoverService.GetEarningsSummaryAsync(user.Id, year, month);
+
                     // Zusammenfassung für Benutzer
                     table.AddCell(new Cell().Add(new Paragraph("Gesamt").SetFont(boldFont)));
                     table.AddCell(new Cell().Add(new Paragraph("")));
@@ -220,24 +294,69 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
 
                     document.Add(table);
 
+                    // Minijob-Informationen pro Benutzer
+                    Table minijobTable = new Table(2).UseAllAvailableWidth();
+                    minijobTable.SetMarginTop(10);
+
+                    // Minijob-Infos
+                    minijobTable.AddHeaderCell(new Cell(1, 2).Add(new Paragraph("Minijob-Übersicht").SetFont(boldFont))
+                        .SetBackgroundColor(ColorConstants.LIGHT_GRAY)
+                        .SetTextAlignment(TextAlignment.CENTER));
+
+                    // Monatliches Limit
+                    minijobTable.AddCell(new Cell().Add(new Paragraph("Minijob-Grenze:").SetFont(boldFont)));
+                    minijobTable.AddCell(new Cell().Add(new Paragraph($"{minijobSettings.MonthlyLimit:N2} €").SetFont(normalFont)));
+
+                    // Übertrag aus dem Vormonat
+                    minijobTable.AddCell(new Cell().Add(new Paragraph("Übertrag aus Vormonat:").SetFont(boldFont)));
+                    minijobTable.AddCell(new Cell().Add(new Paragraph($"{carryoverInformation.carryoverIn:N2} €").SetFont(normalFont)));
+
+                    // Verdienstanspruch
+                    minijobTable.AddCell(new Cell().Add(new Paragraph("Tatsächlicher Verdienstanspruch:").SetFont(boldFont)));
+                    minijobTable.AddCell(new Cell().Add(new Paragraph($"{totalUserEarnings:N2} €").SetFont(normalFont)));
+
+                    // Ausgezahlter Betrag
+                    minijobTable.AddCell(new Cell().Add(new Paragraph("Ausgezahlter Betrag:").SetFont(boldFont)));
+                    minijobTable.AddCell(new Cell().Add(new Paragraph($"{carryoverInformation.reportedEarnings:N2} €").SetFont(normalFont)));
+
+                    // Übertrag in den Folgemonat
+                    minijobTable.AddCell(new Cell().Add(new Paragraph("Übertrag in Folgemonat:").SetFont(boldFont)));
+                    var carryoverOutCell = new Cell().Add(new Paragraph($"{carryoverInformation.carryoverOut:N2} €").SetFont(normalFont));
+
+                    // If there's carryover out, highlight it
+                    if (carryoverInformation.carryoverOut > 0)
+                    {
+                        carryoverOutCell.SetBackgroundColor(new DeviceRgb(255, 240, 240));
+                    }
+
+                    minijobTable.AddCell(carryoverOutCell);
+
+                    document.Add(minijobTable);
+
+                    // Hinweis bei Überschreitung des Limits
+                    if (carryoverInformation.carryoverOut > 0)
+                    {
+                        document.Add(new Paragraph("Hinweis: Die Minijob-Grenze wurde überschritten. Der Überschuss wird in den nächsten Monat übertragen.")
+                            .SetFont(italicFont)
+                            .SetFontSize(9)
+                            .SetMarginTop(5));
+                    }
+
                     // Zusätzliche Informationen pro Benutzer
                     document.Add(new Paragraph($"Aktueller Stundenlohn: {settings.HourlyRate:N2} €")
-                        .SetFont(normalFont));
+                        .SetFont(normalFont)
+                        .SetMarginTop(5));
 
                     // Hinweis auf historische Stundenlöhne
                     if (await HasHistoricalRatesAsync(user.Id))
                     {
-                        PdfFont italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
-
                         document.Add(new Paragraph("Hinweis: Die Berechnungen berücksichtigen historische Stundenlohnsätze.")
                             .SetFont(italicFont)
                             .SetFontSize(9));
                     }
 
-                    document.Add(new Paragraph($"Gesamtverdienst: {totalUserEarnings:N2} €")
-                        .SetFont(boldFont));
-
                     totalCompanyEarnings += totalUserEarnings;
+                    totalReportedEarnings += carryoverInformation.reportedEarnings;
                 }
 
                 // Gesamtzusammenfassung für alle Benutzer
@@ -245,8 +364,19 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     .SetFont(boldFont)
                     .SetFontSize(16)
                     .SetMarginTop(30));
-                document.Add(new Paragraph($"Gesamtkosten für den Zeitraum: {totalCompanyEarnings:N2} €")
-                    .SetFont(boldFont));
+
+                Table summaryTable = new Table(2).UseAllAvailableWidth();
+
+                summaryTable.AddCell(new Cell().Add(new Paragraph("Gesamter Verdienstanspruch:").SetFont(boldFont)));
+                summaryTable.AddCell(new Cell().Add(new Paragraph($"{totalCompanyEarnings:N2} €").SetFont(boldFont)));
+
+                summaryTable.AddCell(new Cell().Add(new Paragraph("Tatsächliche Auszahlung:").SetFont(boldFont)));
+                summaryTable.AddCell(new Cell().Add(new Paragraph($"{totalReportedEarnings:N2} €").SetFont(boldFont)));
+
+                summaryTable.AddCell(new Cell().Add(new Paragraph("Differenz (Übertrag gesamt):").SetFont(boldFont)));
+                summaryTable.AddCell(new Cell().Add(new Paragraph($"{(totalCompanyEarnings - totalReportedEarnings):N2} €").SetFont(boldFont)));
+
+                document.Add(summaryTable);
 
                 document.Close();
                 return memoryStream.ToArray();
