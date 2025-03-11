@@ -15,6 +15,9 @@ namespace SchoppmannTimeTracker.Web.Models
         public decimal CarryoverOut { get; set; }
         public decimal ReportedEarnings { get; set; }
         public bool IsOverMinijobLimit { get; set; }
+        public int CurrentYear { get; set; }
+        public int CurrentMonth { get; set; }
+        public List<BillingPeriodViewModel> BillingPeriods { get; set; }
     }
 
     public class TimeEntryListItemViewModel
@@ -25,5 +28,15 @@ namespace SchoppmannTimeTracker.Web.Models
         public TimeSpan EndTime { get; set; }
         public TimeSpan WorkingHours => EndTime - StartTime;
         public decimal Earnings { get; set; }
+    }
+
+    public class BillingPeriodViewModel
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string DisplayName { get; set; }
+        public bool IsCurrent => DateTime.Now >= StartDate && DateTime.Now <= EndDate;
     }
 }

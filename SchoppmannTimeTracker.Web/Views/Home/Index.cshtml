@@ -12,13 +12,62 @@
     </div>
 </div>
 
+<!-- Zeitraum-Navigation -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <span class="fw-bold">Zeitraum:</span>
+            </div>
+            <div class="col-md-4">
+                <select id="period-selector" class="form-select">
+                    @foreach (var period in Model.BillingPeriods)
+                    {
+                        if (period.Year == Model.CurrentYear && period.Month == Model.CurrentMonth)
+                        {
+                                    <option value="@period.Year-@period.Month" selected>
+                                @period.DisplayName (@period.StartDate.ToString("dd.MM.yyyy") - @period.EndDate.ToString("dd.MM.yyyy"))
+                                    </option>
+                        }
+                        else
+                        {
+                                    <option value="@period.Year-@period.Month">
+                                @period.DisplayName (@period.StartDate.ToString("dd.MM.yyyy") - @period.EndDate.ToString("dd.MM.yyyy"))
+                                    </option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <div class="btn-group">
+                    <a asp-controller="Home" asp-action="Index" 
+                       asp-route-year="@Model.BillingPeriods.FirstOrDefault(p => p.Year == Model.CurrentYear && p.Month == Model.CurrentMonth)?.StartDate.AddMonths(-1).Year" 
+                       asp-route-month="@Model.BillingPeriods.FirstOrDefault(p => p.Year == Model.CurrentYear && p.Month == Model.CurrentMonth)?.StartDate.AddMonths(-1).Month" 
+                       class="btn btn-outline-primary">
+                        <i class="bi bi-chevron-left"></i> Vorheriger
+                    </a>
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">
+                        Aktuell
+                    </a>
+                    <a asp-controller="Home" asp-action="Index" 
+                       asp-route-year="@Model.BillingPeriods.FirstOrDefault(p => p.Year == Model.CurrentYear && p.Month == Model.CurrentMonth)?.StartDate.AddMonths(1).Year" 
+                       asp-route-month="@Model.BillingPeriods.FirstOrDefault(p => p.Year == Model.CurrentYear && p.Month == Model.CurrentMonth)?.StartDate.AddMonths(1).Month" 
+                       class="btn btn-outline-primary">
+                        Nächster <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (Model.IsOverMinijobLimit)
 {
-    <div class="alert alert-warning" role="alert">
-        <i class="bi bi-exclamation-triangle"></i> <strong>Hinweis:</strong>
-        Die Minijob-Grenze von @Model.MinijobLimit.ToString("N2") € wurde überschritten.
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> <strong>Hinweis:</strong>
+            Die Minijob-Grenze von @Model.MinijobLimit.ToString("N2") € wurde überschritten.
         @Model.CarryoverOut.ToString("N2") € werden in den nächsten Monat übertragen.
-    </div>
+        </div>
 }
 
 <div class="card mb-4 shadow-sm">
@@ -76,32 +125,32 @@
                     {
                         foreach (var entry in Model.TimeEntries)
                         {
-                            <tr>
-                                <td>@entry.WorkDate.ToString("dd.MM.yyyy")</td>
-                                <td>@entry.StartTime.ToString(@"hh\:mm")</td>
-                                <td>@entry.EndTime.ToString(@"hh\:mm")</td>
-                                <td>@entry.WorkingHours.ToString(@"hh\:mm")</td>
-                                <td>@entry.Earnings.ToString("N2")</td>
-                                <td class="text-center">
-                                    <div class="btn-group" role="group">
-                                        <a asp-controller="TimeEntry" asp-action="Edit" asp-route-id="@entry.Id" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i> Bearbeiten
-                                        </a>
-                                        <form asp-controller="TimeEntry" asp-action="Delete" asp-route-id="@entry.Id" method="post" class="d-inline" onsubmit="return confirm('Möchten Sie diesen Eintrag wirklich löschen?');">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="bi bi-trash"></i> Löschen
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
+                                    <tr>
+                                        <td>@entry.WorkDate.ToString("dd.MM.yyyy")</td>
+                                        <td>@entry.StartTime.ToString(@"hh\:mm")</td>
+                                        <td>@entry.EndTime.ToString(@"hh\:mm")</td>
+                                        <td>@entry.WorkingHours.ToString(@"hh\:mm")</td>
+                                        <td>@entry.Earnings.ToString("N2")</td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <a asp-controller="TimeEntry" asp-action="Edit" asp-route-id="@entry.Id" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-pencil"></i> Bearbeiten
+                                                </a>
+                                                <form asp-controller="TimeEntry" asp-action="Delete" asp-route-id="@entry.Id" method="post" class="d-inline" onsubmit="return confirm('Möchten Sie diesen Eintrag wirklich löschen?');">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-trash"></i> Löschen
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
                         }
                     }
                     else
                     {
-                        <tr>
-                            <td colspan="6" class="text-center">Keine Einträge für diesen Zeitraum vorhanden.</td>
-                        </tr>
+                            <tr>
+                                <td colspan="6" class="text-center">Keine Einträge für diesen Zeitraum vorhanden.</td>
+                            </tr>
                     }
                 </tbody>
                 <tfoot>
@@ -129,9 +178,26 @@
         </a>
         @if (User.IsInRole("Admin"))
         {
-            <a asp-controller="Home" asp-action="GenerateAllUsersPdf" class="btn btn-info ms-2">
-                <i class="bi bi-file-earmark-pdf"></i> Alle Mitarbeiter PDF
-            </a>
+                <a asp-controller="Home" asp-action="GenerateAllUsersPdf" class="btn btn-info ms-2">
+                    <i class="bi bi-file-earmark-pdf"></i> Alle Mitarbeiter PDF
+                </a>
         }
     </div>
 </div>
+
+@section Scripts
+{
+        <script>
+            $(document).ready(function() {
+                // Period selector change event
+                $('#period-selector').on('change', function() {
+                    var selectedPeriod = $(this).val().split('-');
+                    var year = selectedPeriod[0];
+                    var month = selectedPeriod[1];
+
+                    // Redirect to home page with selected period
+                    window.location.href = '@Url.Action("Index", "Home")' + '?year=' + year + '&month=' + month;
+                });
+            });
+        </script>
+}

@@ -117,7 +117,12 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                 table.AddCell(new Cell().Add(new Paragraph("Gesamt").SetFont(boldFont)));
                 table.AddCell(new Cell().Add(new Paragraph("")));
                 table.AddCell(new Cell().Add(new Paragraph("")));
-                table.AddCell(new Cell().Add(new Paragraph(totalWorkHours.ToString(@"hh\:mm")).SetFont(boldFont)));
+
+                // Format total work hours correctly
+                var totalHours = (int)totalWorkHours.TotalHours;
+                var totalMinutes = totalWorkHours.Minutes;
+                table.AddCell(new Cell().Add(new Paragraph($"{totalHours}:{totalMinutes:D2}").SetFont(boldFont)));
+
                 table.AddCell(new Cell().Add(new Paragraph($"{totalEarnings:N2}").SetFont(boldFont)));
 
                 document.Add(table);
@@ -289,7 +294,12 @@ namespace SchoppmannTimeTracker.Infrastructure.Services
                     table.AddCell(new Cell().Add(new Paragraph("Gesamt").SetFont(boldFont)));
                     table.AddCell(new Cell().Add(new Paragraph("")));
                     table.AddCell(new Cell().Add(new Paragraph("")));
-                    table.AddCell(new Cell().Add(new Paragraph(totalUserWorkHours.ToString(@"hh\:mm")).SetFont(boldFont)));
+
+                    // Format total user work hours correctly 
+                    var totalUserHours = (int)totalUserWorkHours.TotalHours;
+                    var totalUserMinutes = totalUserWorkHours.Minutes;
+                    table.AddCell(new Cell().Add(new Paragraph($"{totalUserHours}:{totalUserMinutes:D2}").SetFont(boldFont)));
+
                     table.AddCell(new Cell().Add(new Paragraph($"{totalUserEarnings:N2}").SetFont(boldFont)));
 
                     document.Add(table);
