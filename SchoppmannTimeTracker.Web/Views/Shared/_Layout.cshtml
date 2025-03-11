@@ -35,8 +35,14 @@
                         </li>
                         @if (User.IsInRole("Admin"))
                         {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="Admin" asp-controller="UserManager" asp-action="Index">Benutzerverwaltung</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Administration
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                                    <li><a class="dropdown-item" asp-area="Admin" asp-controller="UserManager" asp-action="Index">Benutzerverwaltung</a></li>
+                                    <li><a class="dropdown-item" asp-area="Admin" asp-controller="MinijobSettings" asp-action="Index">Minijob-Einstellungen</a></li>
+                                </ul>
                             </li>
                         }
                     </ul>

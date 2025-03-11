@@ -42,10 +42,25 @@ namespace SchoppmannTimeTracker.Core.Services
         {
             var settings = await _minijobSettingsRepository.GetSettingsForDateAsync(date);
 
-            // If no settings exist for the date, use current settings
+            // Wenn keine Einstellungen für das Datum existieren, verwende die aktuellen Einstellungen
             if (settings == null)
             {
-                settings = await GetCurrentSettingsAsync();
+                // Aber nur, wenn das angegebene Datum nicht in der Zukunft liegt
+                if (date <= DateTime.Today)
+                {
+                    settings = await GetCurrentSettingsAsync();
+                }
+                else
+                {
+                    // Für zukünftige Daten: Finde die letzte gültige Einstellung vor diesem Datum
+                    settings = await _minijobSettingsRepository.GetLastValidSettingsBeforeDateAsync(date);
+
+                    // Wenn immer noch nichts gefunden wurde, Standardeinstellungen verwenden
+                    if (settings == null)
+                    {
+                        settings = await GetCurrentSettingsAsync();
+                    }
+                }
             }
 
             return settings;
@@ -58,7 +73,7 @@ namespace SchoppmannTimeTracker.Core.Services
 
         public async Task<MinijobSettings> UpdateSettingsAsync(MinijobSettings settings)
         {
-            // If we're updating the active setting, deactivate all other settings
+            // Wenn wir die aktive Einstellung aktualisieren, deaktivieren wir alle anderen Einstellungen
             if (settings.IsActive)
             {
                 var currentSettings = await _minijobSettingsRepository.GetCurrentSettingsAsync();
@@ -70,14 +85,31 @@ namespace SchoppmannTimeTracker.Core.Services
                 }
             }
 
-            // If it's a new setting
+            // Wenn es eine neue Einstellung ist
             if (settings.Id == 0)
             {
                 await _minijobSettingsRepository.AddAsync(settings);
             }
             else
             {
-                _minijobSettingsRepository.Update(settings);
+                // Bestehende Einstellung aktualisieren
+                var existingSettings = await _minijobSettingsRepository.GetByIdAsync(settings.Id);
+                if (existingSettings != null)
+                {
+                    // Aktualisiere die Eigenschaften der existierenden Entität
+                    existingSettings.MonthlyLimit = settings.MonthlyLimit;
+                    existingSettings.Description = settings.Description;
+                    existingSettings.ValidFrom = settings.ValidFrom;
+                    existingSettings.ValidTo = settings.ValidTo;
+                    existingSettings.IsActive = settings.IsActive;
+                    existingSettings.UpdatedAt = DateTime.Now;
+
+                    // Da wir die vorhandene Entität aktualisieren, ist sie bereits vom DbContext verfolgt
+                    _minijobSettingsRepository.Update(existingSettings);
+
+                    // Aktualisiere die Referenz, damit Änderungen zurückgegeben werden
+                    settings = existingSettings;
+                }
             }
 
             await _minijobSettingsRepository.SaveChangesAsync();

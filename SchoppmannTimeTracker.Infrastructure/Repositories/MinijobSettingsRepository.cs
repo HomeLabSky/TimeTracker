@@ -37,5 +37,12 @@ namespace SchoppmannTimeTracker.Infrastructure.Repositories
                 .OrderByDescending(s => s.ValidFrom)
                 .ToListAsync();
         }
+        public async Task<MinijobSettings> GetLastValidSettingsBeforeDateAsync(DateTime date)
+        {
+            return await _context.MinijobSettings
+                .Where(s => s.ValidFrom <= DateTime.Today) // Nur bereits gültige Einstellungen
+                .OrderByDescending(s => s.ValidFrom)       // Die neueste zuerst
+                .FirstOrDefaultAsync();
+        }
     }
 }

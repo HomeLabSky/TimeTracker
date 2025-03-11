@@ -12,6 +12,48 @@
     </div>
 </div>
 
+@if (Model.IsOverMinijobLimit)
+{
+    <div class="alert alert-warning" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> <strong>Hinweis:</strong>
+        Die Minijob-Grenze von @Model.MinijobLimit.ToString("N2") € wurde überschritten.
+        @Model.CarryoverOut.ToString("N2") € werden in den nächsten Monat übertragen.
+    </div>
+}
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Minijob-Übersicht</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-6">Minijob-Grenze:</dt>
+                    <dd class="col-sm-6">@Model.MinijobLimit.ToString("N2") €</dd>
+
+                    <dt class="col-sm-6">Übertrag aus Vormonat:</dt>
+                    <dd class="col-sm-6">@Model.CarryoverIn.ToString("N2") €</dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-6">Tatsächlicher Verdienstanspruch:</dt>
+                    <dd class="col-sm-6">@Model.TotalEarnings.ToString("N2") €</dd>
+
+                    <dt class="col-sm-6">Ausgezahlter Betrag:</dt>
+                    <dd class="col-sm-6">@Model.ReportedEarnings.ToString("N2") €</dd>
+
+                    <dt class="col-sm-6">Übertrag in Folgemonat:</dt>
+                    <dd class="col-sm-6 @(Model.CarryoverOut > 0 ? "text-danger fw-bold" : "")">
+                        @Model.CarryoverOut.ToString("N2") €
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card mb-4 shadow-sm">
     <div class="card-header">
         <h5 class="card-title mb-0">Abrechnungszeitraum: @Model.StartDate.ToString("dd.MM.yyyy") - @Model.EndDate.ToString("dd.MM.yyyy")</h5>

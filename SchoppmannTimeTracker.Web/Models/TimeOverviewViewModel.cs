@@ -10,6 +10,11 @@ namespace SchoppmannTimeTracker.Web.Models
         public DateTime EndDate { get; set; }
         public decimal TotalEarnings { get; set; }
         public TimeSpan TotalWorkingHours { get; set; }
+        public decimal MinijobLimit { get; set; }
+        public decimal CarryoverIn { get; set; }
+        public decimal CarryoverOut { get; set; }
+        public decimal ReportedEarnings { get; set; }
+        public bool IsOverMinijobLimit { get; set; }
     }
 
     public class TimeEntryListItemViewModel

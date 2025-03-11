@@ -10,6 +10,7 @@ namespace SchoppmannTimeTracker.Core.Interfaces
         Task<MinijobSettings> GetCurrentSettingsAsync();
         Task<MinijobSettings> GetSettingsForDateAsync(DateTime date);
         Task<IReadOnlyList<MinijobSettings>> GetSettingsHistoryAsync();
+        Task<MinijobSettings> GetLastValidSettingsBeforeDateAsync(DateTime date);
     }
 
     public interface IEarningsCarryoverRepository : IGenericRepository<EarningsCarryover>

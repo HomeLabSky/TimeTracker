@@ -17,22 +17,25 @@ namespace SchoppmannTimeTracker.Web.Controllers
     {
         private readonly ITimeEntryService _timeEntryService;
         private readonly ISettingsService _settingsService;
-        private readonly IPdfService _pdfService;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IHourlyRateService _hourlyRateService; // Neu hinzugefügt
+        private readonly IPdfService _pdfService;
+        private readonly IEarningsCarryoverService _earningsCarryoverService;
+        private readonly IMinijobSettingsService _minijobSettingsService;
 
         public HomeController(
             ITimeEntryService timeEntryService,
             ISettingsService settingsService,
-            IPdfService pdfService,
             UserManager<ApplicationUser> userManager,
-            IHourlyRateService hourlyRateService) // Neu hinzugefügt
+            IPdfService pdfService,
+            IEarningsCarryoverService earningsCarryoverService,
+            IMinijobSettingsService minijobSettingsService)
         {
             _timeEntryService = timeEntryService;
             _settingsService = settingsService;
-            _pdfService = pdfService;
             _userManager = userManager;
-            _hourlyRateService = hourlyRateService; // Neu hinzugefügt
+            _pdfService = pdfService;
+            _earningsCarryoverService = earningsCarryoverService;
+            _minijobSettingsService = minijobSettingsService;
         }
 
         public async Task<IActionResult> Index()
@@ -40,60 +43,33 @@ namespace SchoppmannTimeTracker.Web.Controllers
             var userId = _userManager.GetUserId(User);
             var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
+            System.Diagnostics.Debug.WriteLine($"Abrechnungszeitraum: {startDate:dd.MM.yyyy} - {endDate:dd.MM.yyyy}");
+
             var timeEntries = await _timeEntryService.GetTimeEntriesForPeriodAsync(userId, startDate, endDate);
-            var userSettings = await _settingsService.GetUserSettingsAsync(userId);
 
-            // Modifizierte Berechnung der Einträge mit historischen Stundenlöhnen
-            var viewModel = new TimeOverviewViewModel
-            {
-                TimeEntries = await MapTimeEntriesToViewModel(timeEntries, userId),
-                StartDate = startDate,
-                EndDate = endDate,
-                TotalEarnings = await CalculateTotalEarningsAsync(timeEntries, userId),
-                TotalWorkingHours = CalculateTotalWorkingHours(timeEntries)
-            };
+            System.Diagnostics.Debug.WriteLine($"Anzahl Zeiteinträge: {timeEntries.Count}");
 
-            return View(viewModel);
-        }
+            // Minijob-Informationen abrufen
+            var year = startDate.Year;
+            var month = startDate.Month;
+            var earningsSummary = await _earningsCarryoverService.GetEarningsSummaryAsync(userId, year, month);
+            var minijobSettings = await _minijobSettingsService.GetSettingsForDateAsync(DateTime.Today);
 
-        // Neue Hilfsmethode zur Berechnung der Gesamtvergütung mit historischen Stundenlöhnen
-        private async Task<decimal> CalculateTotalEarningsAsync(IReadOnlyList<TimeEntry> timeEntries, string userId)
-        {
+            System.Diagnostics.Debug.WriteLine($"Minijob-Grenze: {minijobSettings.MonthlyLimit:N2} €");
+            System.Diagnostics.Debug.WriteLine($"Carryover In: {earningsSummary.carryoverIn:N2} €, Carryover Out: {earningsSummary.carryoverOut:N2} €");
+
             decimal totalEarnings = 0;
-            foreach (var entry in timeEntries)
-            {
-                totalEarnings += await _timeEntryService.CalculateEarningsAsync(entry);
-            }
-            return totalEarnings;
-        }
-
-        // Hilfsmethode zur Berechnung der Gesamtarbeitszeit
-        private TimeSpan CalculateTotalWorkingHours(IReadOnlyList<TimeEntry> timeEntries)
-        {
-            var totalHours = TimeSpan.Zero;
-            foreach (var entry in timeEntries)
-            {
-                totalHours += _timeEntryService.CalculateWorkHours(entry);
-            }
-            return totalHours;
-        }
-
-        // Neue Hilfsmethode zum Mapping von TimeEntries auf ViewModel-Objekte
-        private async Task<IEnumerable<TimeEntryListItemViewModel>> MapTimeEntriesToViewModel(IReadOnlyList<TimeEntry> timeEntries, string userId)
-        {
-            var result = new List<TimeEntryListItemViewModel>();
-            System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Mappe {timeEntries.Count} Einträge für Benutzer {userId}");
+            TimeSpan totalWorkHours = TimeSpan.Zero;
+            var viewEntries = new List<TimeEntryListItemViewModel>();
 
             foreach (var entry in timeEntries)
             {
-                System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Berechne Verdienst für Eintrag vom {entry.WorkDate:dd.MM.yyyy}");
-
-                // Berechnung des historischen Stundenlohns für diesen Eintrag
+                var workHours = _timeEntryService.CalculateWorkHours(entry);
                 var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
 
-                System.Diagnostics.Debug.WriteLine($"MapTimeEntriesToViewModel: Berechneter Verdienst: {earnings} €");
+                System.Diagnostics.Debug.WriteLine($"Eintrag {entry.Id}: {entry.WorkDate:dd.MM.yyyy}, {workHours:hh\\:mm}, {earnings:N2} €");
 
-                result.Add(new TimeEntryListItemViewModel
+                viewEntries.Add(new TimeEntryListItemViewModel
                 {
                     Id = entry.Id,
                     WorkDate = entry.WorkDate,
@@ -101,28 +77,63 @@ namespace SchoppmannTimeTracker.Web.Controllers
                     EndTime = entry.EndTime,
                     Earnings = earnings
                 });
+
+                totalEarnings += earnings;
+                totalWorkHours += workHours;
             }
 
-            return result.OrderByDescending(x => x.WorkDate).ThenByDescending(x => x.StartTime);
+            System.Diagnostics.Debug.WriteLine($"Gesamtarbeitszeit: {totalWorkHours:hh\\:mm}, Gesamtverdienst: {totalEarnings:N2} €");
+
+            var viewModel = new TimeOverviewViewModel
+            {
+                StartDate = startDate,
+                EndDate = endDate,
+                TimeEntries = viewEntries.OrderByDescending(x => x.WorkDate).ThenByDescending(x => x.StartTime),
+                TotalEarnings = totalEarnings,
+                TotalWorkingHours = totalWorkHours,
+                // Minijob-Informationen
+                MinijobLimit = minijobSettings.MonthlyLimit,
+                CarryoverIn = earningsSummary.carryoverIn,
+                CarryoverOut = earningsSummary.carryoverOut,
+                ReportedEarnings = earningsSummary.reportedEarnings,
+                IsOverMinijobLimit = earningsSummary.carryoverOut > 0
+            };
+
+            return View(viewModel);
         }
 
+        [HttpGet]
         public async Task<IActionResult> GeneratePdf()
         {
             var userId = _userManager.GetUserId(User);
             var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
+            System.Diagnostics.Debug.WriteLine($"Generiere PDF für Zeitraum: {startDate:dd.MM.yyyy} - {endDate:dd.MM.yyyy}");
+
             var pdfBytes = await _pdfService.GenerateTimeSheetPdfAsync(userId, startDate, endDate);
-            return File(pdfBytes, "application/pdf", $"Timesheet_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.pdf");
+            var user = await _userManager.FindByIdAsync(userId);
+            var fileName = $"Zeiterfassung_{user.LastName}_{startDate:yyyy-MM}.pdf";
+
+            System.Diagnostics.Debug.WriteLine($"PDF generiert für Benutzer {user.FirstName} {user.LastName}, Dateiname: {fileName}");
+
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
+        [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GenerateAllUsersPdf()
         {
             var userId = _userManager.GetUserId(User);
             var (startDate, endDate) = await _timeEntryService.GetCurrentBillingPeriodAsync(userId);
 
+            System.Diagnostics.Debug.WriteLine($"Generiere PDF für alle Benutzer, Zeitraum: {startDate:dd.MM.yyyy} - {endDate:dd.MM.yyyy}");
+
             var pdfBytes = await _pdfService.GenerateAllUsersTimeSheetPdfAsync(startDate, endDate);
-            return File(pdfBytes, "application/pdf", $"AllUsers_Timesheet_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.pdf");
+            var fileName = $"Zeiterfassung_Alle_Mitarbeiter_{startDate:yyyy-MM}.pdf";
+
+            System.Diagnostics.Debug.WriteLine($"PDF für alle Benutzer generiert, Dateiname: {fileName}");
+
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -130,45 +141,5 @@ namespace SchoppmannTimeTracker.Web.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
-
-
-        [HttpGet]
-        [Route("Home/TestRateHistory/{userId}")]
-        public async Task<IActionResult> TestRateHistory(string userId)
-        {
-            if (string.IsNullOrEmpty(userId))
-            {
-                userId = _userManager.GetUserId(User);
-            }
-
-            var history = await _hourlyRateService.GetRateHistoryAsync(userId);
-
-            System.Diagnostics.Debug.WriteLine($"TestRateHistory: {history.Count} Einträge für Benutzer {userId} gefunden");
-
-            foreach (var entry in history)
-            {
-                System.Diagnostics.Debug.WriteLine($"TestRateHistory: Rate: {entry.Rate} €, gültig von {entry.ValidFrom:dd.MM.yyyy} bis {(entry.ValidTo.HasValue ? entry.ValidTo.Value.ToString("dd.MM.yyyy") : "heute")}");
-            }
-
-            // Teste für mehrere Daten
-            var testDates = new[]
-            {
-                new DateTime(2025, 2, 1),
-                new DateTime(2025, 2, 15),
-                new DateTime(2025, 3, 1),
-                new DateTime(2025, 3, 15),
-                new DateTime(2025, 4, 1),
-                DateTime.Today
-            };
-
-            foreach (var date in testDates)
-            {
-                var rate = await _hourlyRateService.GetRateForDateAsync(userId, date);
-                System.Diagnostics.Debug.WriteLine($"TestRateHistory: Rate für {date:dd.MM.yyyy}: {rate} €");
-            }
-
-            return Content("Test abgeschlossen. Siehe Debug-Ausgabe für Ergebnisse.");
-        }
-
     }
 }
