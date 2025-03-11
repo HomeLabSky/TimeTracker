@@ -19,8 +19,8 @@ namespace SchoppmannTimeTracker.Infrastructure.Repositories
         {
             return await _context.TimeEntries
                 .Where(x => x.UserId == userId)
-                .OrderByDescending(x => x.WorkDate)
-                .ThenByDescending(x => x.StartTime)
+                .OrderBy(x => x.WorkDate)
+                .ThenBy(x => x.StartTime)
                 .ToListAsync();
         }
 
@@ -30,6 +30,14 @@ namespace SchoppmannTimeTracker.Infrastructure.Repositories
                 .Where(x => x.UserId == userId && x.WorkDate >= startDate && x.WorkDate <= endDate)
                 .OrderBy(x => x.WorkDate)
                 .ThenBy(x => x.StartTime)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<TimeEntry>> GetTimeEntriesForDateAsync(string userId, DateTime workDate)
+        {
+            return await _context.TimeEntries
+                .Where(x => x.UserId == userId && x.WorkDate.Date == workDate.Date)
+                .OrderBy(x => x.StartTime)
                 .ToListAsync();
         }
     }

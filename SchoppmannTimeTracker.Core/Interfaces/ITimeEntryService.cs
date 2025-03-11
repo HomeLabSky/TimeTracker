@@ -18,5 +18,6 @@ namespace SchoppmannTimeTracker.Core.Interfaces
         Task<(DateTime StartDate, DateTime EndDate)> GetCurrentBillingPeriodAsync(string userId);
         Task<decimal> GetTotalEarningsForPeriodAsync(string userId, DateTime startDate, DateTime endDate);
         Task<decimal> CalculateEarningsAsync(TimeEntry timeEntry);
+        Task<IEnumerable<TimeEntry>> CheckTimeEntryOverlap(string userId, DateTime workDate, TimeSpan startTime, TimeSpan endTime, int? currentEntryId = null);
     }
 }

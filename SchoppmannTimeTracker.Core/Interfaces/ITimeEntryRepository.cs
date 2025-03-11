@@ -9,5 +9,6 @@ namespace SchoppmannTimeTracker.Core.Interfaces
     {
         Task<IReadOnlyList<TimeEntry>> GetTimeEntriesByUserAsync(string userId);
         Task<IReadOnlyList<TimeEntry>> GetTimeEntriesForPeriodAsync(string userId, DateTime startDate, DateTime endDate);
+        Task<IReadOnlyList<TimeEntry>> GetTimeEntriesForDateAsync(string userId, DateTime workDate);
     }
 }

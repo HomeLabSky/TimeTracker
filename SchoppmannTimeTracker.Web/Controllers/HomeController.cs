@@ -59,15 +59,15 @@ namespace SchoppmannTimeTracker.Web.Controllers
             System.Diagnostics.Debug.WriteLine($"Carryover In: {earningsSummary.carryoverIn:N2} €, Carryover Out: {earningsSummary.carryoverOut:N2} €");
 
             decimal totalEarnings = 0;
-            TimeSpan totalWorkHours = TimeSpan.Zero;
+            var totalMinutes = timeEntries.Sum(entry => entry.EndTime.Subtract(entry.StartTime).TotalMinutes);
+            TimeSpan totalWorkHours = TimeSpan.FromMinutes(totalMinutes);
             var viewEntries = new List<TimeEntryListItemViewModel>();
 
             foreach (var entry in timeEntries)
             {
                 var workHours = _timeEntryService.CalculateWorkHours(entry);
+                System.Diagnostics.Debug.WriteLine($"Arbeitszeit für {entry.WorkDate:dd.MM.yyyy}: {workHours:hh\\:mm}");
                 var earnings = await _timeEntryService.CalculateEarningsAsync(entry);
-
-                System.Diagnostics.Debug.WriteLine($"Eintrag {entry.Id}: {entry.WorkDate:dd.MM.yyyy}, {workHours:hh\\:mm}, {earnings:N2} €");
 
                 viewEntries.Add(new TimeEntryListItemViewModel
                 {
@@ -79,7 +79,7 @@ namespace SchoppmannTimeTracker.Web.Controllers
                 });
 
                 totalEarnings += earnings;
-                totalWorkHours += workHours;
+                //totalWorkHours = totalWorkHours.Add(workHours);
             }
 
             System.Diagnostics.Debug.WriteLine($"Gesamtarbeitszeit: {totalWorkHours:hh\\:mm}, Gesamtverdienst: {totalEarnings:N2} €");
@@ -88,7 +88,7 @@ namespace SchoppmannTimeTracker.Web.Controllers
             {
                 StartDate = startDate,
                 EndDate = endDate,
-                TimeEntries = viewEntries.OrderByDescending(x => x.WorkDate).ThenByDescending(x => x.StartTime),
+                TimeEntries = viewEntries.OrderBy(x => x.WorkDate).ThenBy(x => x.StartTime),
                 TotalEarnings = totalEarnings,
                 TotalWorkingHours = totalWorkHours,
                 // Minijob-Informationen

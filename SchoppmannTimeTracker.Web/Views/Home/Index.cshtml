@@ -109,7 +109,13 @@
                         <th>Gesamt</th>
                         <td></td>
                         <td></td>
-                        <th>@Model.TotalWorkingHours.ToString(@"hh\:mm")</th>
+                        <th>
+                            @{
+                                var totalHours = (int)Model.TotalWorkingHours.TotalHours;
+                                var totalMinutes = Model.TotalWorkingHours.Minutes;
+                            }
+                            @($"{totalHours}:{totalMinutes:D2}")
+                        </th>
                         <th>@Model.TotalEarnings.ToString("N2") €</th>
                         <td></td>
                     </tr>

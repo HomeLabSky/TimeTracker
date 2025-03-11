@@ -40,13 +40,16 @@ namespace SchoppmannTimeTracker.Web.Controllers
         {
             if (ModelState.IsValid)
             {
-                if (model.EndTime <= model.StartTime)
+                var userId = _userManager.GetUserId(User);
+
+                // Prüfe auf Zeitüberlappungen
+                var overlappingEntries = await _timeEntryService.CheckTimeEntryOverlap(userId, model.WorkDate, model.StartTime, model.EndTime);
+
+                if (overlappingEntries.Any())
                 {
-                    ModelState.AddModelError("EndTime", "Die Endzeit muss nach der Startzeit liegen.");
+                    ModelState.AddModelError(string.Empty, "Für diesen Zeitraum existiert bereits ein Eintrag. Bitte bearbeiten Sie den bestehenden Eintrag.");
                     return View(model);
                 }
-
-                var userId = _userManager.GetUserId(User);
 
                 var timeEntry = new TimeEntry
                 {
@@ -114,9 +117,14 @@ namespace SchoppmannTimeTracker.Web.Controllers
 
             if (ModelState.IsValid)
             {
-                if (model.EndTime <= model.StartTime)
+                var userId = _userManager.GetUserId(User);
+
+                // Prüfe auf Zeitüberlappungen, schließe den aktuellen Eintrag aus
+                var overlappingEntries = await _timeEntryService.CheckTimeEntryOverlap(userId, model.WorkDate, model.StartTime, model.EndTime, id);
+
+                if (overlappingEntries.Any())
                 {
-                    ModelState.AddModelError("EndTime", "Die Endzeit muss nach der Startzeit liegen.");
+                    ModelState.AddModelError(string.Empty, "Für diesen Zeitraum existiert bereits ein Eintrag. Bitte passen Sie die Zeiten an.");
                     return View(model);
                 }
 
@@ -125,14 +133,6 @@ namespace SchoppmannTimeTracker.Web.Controllers
                 if (existingTimeEntry == null)
                 {
                     return NotFound();
-                }
-
-                var userId = _userManager.GetUserId(User);
-
-                // Prüfen, ob der Eintrag dem aktuellen Benutzer gehört
-                if (existingTimeEntry.UserId != userId)
-                {
-                    return Forbid();
                 }
 
                 existingTimeEntry.WorkDate = model.WorkDate.Date;

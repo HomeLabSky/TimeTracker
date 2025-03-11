@@ -175,5 +175,20 @@ namespace SchoppmannTimeTracker.Core.Services
 
             return earnings;
         }
+
+        public async Task<IEnumerable<TimeEntry>> CheckTimeEntryOverlap(string userId, DateTime workDate, TimeSpan startTime, TimeSpan endTime, int? currentEntryId = null)
+        {
+            var timeEntries = await _timeEntryRepository.GetTimeEntriesForDateAsync(userId, workDate);
+
+            return timeEntries
+                .Where(entry =>
+                    // Ausschluss des aktuellen Eintrags bei Bearbeitung
+                    (currentEntryId == null || entry.Id != currentEntryId) &&
+                    // Prüfung auf Überlappung
+                    ((startTime >= entry.StartTime && startTime < entry.EndTime) ||
+                     (endTime > entry.StartTime && endTime <= entry.EndTime) ||
+                     (startTime <= entry.StartTime && endTime >= entry.EndTime)))
+                .ToList();
+        }
     }
 }
